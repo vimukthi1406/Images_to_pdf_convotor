@@ -4,7 +4,7 @@ pipeline {
     environment {
         IMAGE_NAME = 'image-to-pdf-app'
         CONTAINER_NAME = 'image-to-pdf-container'
-        PORT = '8080'
+        PORT = '3000'
     }
 
     stages {
