@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lossless Image to PDF Converter</title>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="background-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+    </div>
+
+    <div class="container">
+        <header>
+            <div class="logo">
+                <i class="fa-solid fa-file-pdf"></i>
+                <h1>PixelPerfect PDF</h1>
+            </div>
+            <p>Convert images to PDF locally with <strong>zero quality loss</strong>.</p>
+        </header>
+
+        <main>
+            <div id="drop-zone" class="drop-zone">
+                <div class="drop-content">
+                    <i class="fa-solid fa-cloud-arrow-up drop-icon"></i>
+                    <h2>Drag & Drop Images Here</h2>
+                    <p>or</p>
+                    <label for="file-input" class="btn-primary">
+                        Browse Files
+                    </label>
+                    <input type="file" id="file-input" multiple accept="image/png, image/jpeg, image/jpg, image/webp" hidden>
+                    <p class="file-hints">Supports JPG, PNG, WEBP. You can reorder images after adding them.</p>
+                </div>
+            </div>
+
+            <div class="controls-bar" style="display: none;" id="controls-bar">
+                <div class="stats">
+                    <span id="file-count">0</span> images selected
+                </div>
+                <div class="actions">
+                    <button class="btn-secondary" id="clear-all-btn">
+                        <i class="fa-solid fa-trash-can"></i> Clear All
+                    </button>
+                    <button class="btn-primary" id="generate-pdf-btn">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Generate PDF
+                    </button>
+                </div>
+            </div>
+
+            <div id="image-preview" class="grid-preview">
+                <!-- Image items will be injected here dynamically -->
+            </div>
+        </main>
+        
+        <footer>
+            <p>100% Client-Side. No images are uploaded to any server.</p>
+        </footer>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="overlay hidden">
+        <div class="spinner"></div>
+        <h3 id="loading-text">Generating your PDF...</h3>
+    </div>
+
+    <!-- Local Libraries via CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
