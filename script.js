@@ -8,6 +8,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const generatePdfBtn = document.getElementById('generate-pdf-btn');
     const loadingOverlay = document.getElementById('loading-overlay');
     
+    // New Settings Elements
+    const pdfFilenameInput = document.getElementById('pdf-filename');
+    const pdfTargetSizeSelect = document.getElementById('pdf-target-size');
+    const autoConvertToggle = document.getElementById('auto-convert-toggle');
+    
     let imageFiles = []; // Store image objects: { id, file, dataUrl }
 
     // --- Drag and Drop Events ---
@@ -52,6 +57,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const validFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
         if (validFiles.length === 0) return;
 
+        let loadedCount = 0;
+
         validFiles.forEach(file => {
             const reader = new FileReader();
             reader.readAsDataURL(file);
@@ -65,7 +72,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     dataUrl: imgData
                 });
                 
+                loadedCount++;
                 renderPreview();
+
+                // If all files are loaded and auto-convert is on, trigger generation
+                if (loadedCount === validFiles.length && autoConvertToggle.checked) {
+                    generatePdfBtn.click();
+                }
             };
         });
     }
@@ -130,22 +143,86 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- Compress Image Helper ---
+    function compressImage(img, targetSizeMB, format) {
+        return new Promise((resolve) => {
+            let canvas = document.createElement('canvas');
+            let ctx = canvas.getContext('2d');
+            let width = img.naturalWidth;
+            let height = img.naturalHeight;
+            canvas.width = width;
+            canvas.height = height;
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // If no limit, return original to avoid quality loss
+            if (targetSizeMB === 'none') {
+                resolve(img.src);
+                return;
+            }
+
+            // Target bytes per image with a 15% safety margin for PDF structural overhead
+            const targetBytes = (parseFloat(targetSizeMB) * 1024 * 1024 * 0.85) / imageFiles.length;
+            let quality = 0.9;
+            
+            // Force JPEG for effective compression
+            let outputFormat = format === 'PNG' ? 'image/jpeg' : `image/${format.toLowerCase()}`;
+            if (outputFormat === 'image/png') outputFormat = 'image/jpeg';
+
+            let dataUrl = canvas.toDataURL(outputFormat, quality);
+            // Estimate true binary size from base64 string
+            let approxBytes = Math.round((dataUrl.length - 22) * (3 / 4));
+            
+            // 1. Iteratively reduce quality to hit the target size
+            while (approxBytes > targetBytes && quality > 0.1) {
+                quality -= 0.1;
+                dataUrl = canvas.toDataURL(outputFormat, quality);
+                approxBytes = Math.round((dataUrl.length - 22) * (3 / 4));
+            }
+            
+            // 2. If it's STILL too large (happens with many images or very detailed images), 
+            // we must scale down the physical dimensions to respect the hard size limit.
+            while (approxBytes > targetBytes && width > 200) {
+                width *= 0.8;
+                height *= 0.8;
+                canvas.width = width;
+                canvas.height = height;
+                // Redraw scaled image
+                ctx.drawImage(img, 0, 0, width, height);
+                dataUrl = canvas.toDataURL(outputFormat, quality);
+                approxBytes = Math.round((dataUrl.length - 22) * (3 / 4));
+            }
+            
+            resolve(dataUrl);
+        });
+    }
+
     // --- PDF Generation ---
     generatePdfBtn.addEventListener('click', async () => {
         if (imageFiles.length === 0) return;
         
         loadingOverlay.classList.remove('hidden');
         
-        // We use setTimeout to allow UI to update with the loading spinner
         setTimeout(async () => {
             try {
                 const { jsPDF } = window.jspdf;
-                let doc = null;
+                let doc = new jsPDF({
+                    orientation: 'p',
+                    unit: 'mm',
+                    format: 'a4'
+                });
+
+                const a4Width = 210;
+                const a4Height = 297;
+                const targetSizeMB = pdfTargetSizeSelect.value;
+                let filename = pdfFilenameInput.value.trim();
+                if (!filename.toLowerCase().endsWith('.pdf')) {
+                    filename += '.pdf';
+                }
+                if (filename === '.pdf') filename = 'Converted.pdf';
 
                 for (let i = 0; i < imageFiles.length; i++) {
                     const imgObj = imageFiles[i];
                     
-                    // Get natural image dimensions
                     const img = new Image();
                     img.src = imgObj.dataUrl;
                     
@@ -153,34 +230,44 @@ document.addEventListener('DOMContentLoaded', () => {
                         img.onload = resolve;
                     });
 
-                    // Define page orientation and dimensions exactly matching the image
-                    // This ensures absolute zero quality loss as the PDF maps 1:1 with image pixels
-                    const width = img.naturalWidth;
-                    const height = img.naturalHeight;
-                    const orientation = width > height ? 'l' : 'p';
-                    
-                    if (i === 0) {
-                        // Initialize document with the first image's size
-                        doc = new jsPDF({
-                            orientation: orientation,
-                            unit: 'px',
-                            format: [width, height]
-                        });
-                    } else {
-                        // Add new page for subsequent images
-                        doc.addPage([width, height], orientation);
-                    }
-
                     // Extract format
-                    let format = 'JPEG'; // Default
+                    let format = 'JPEG';
                     if (imgObj.file.type === 'image/png') format = 'PNG';
                     if (imgObj.file.type === 'image/webp') format = 'WEBP';
+
+                    // Apply compression if a target size is selected
+                    const compressedDataUrl = await compressImage(img, targetSizeMB, format);
                     
-                    // Add image covering the entire exact-sized page
-                    doc.addImage(imgObj.dataUrl, format, 0, 0, width, height);
+                    // Since we might have changed to JPEG during compression:
+                    if (targetSizeMB !== 'none') format = 'JPEG'; 
+
+                    // Calculate scale to fit A4
+                    const imgRatio = img.naturalWidth / img.naturalHeight;
+                    const a4Ratio = a4Width / a4Height;
+                    
+                    let drawWidth = a4Width;
+                    let drawHeight = a4Height;
+                    
+                    if (imgRatio > a4Ratio) {
+                        // Image is wider than A4 proportion
+                        drawHeight = a4Width / imgRatio;
+                    } else {
+                        // Image is taller than A4 proportion
+                        drawWidth = a4Height * imgRatio;
+                    }
+                    
+                    // Center the image
+                    const x = (a4Width - drawWidth) / 2;
+                    const y = (a4Height - drawHeight) / 2;
+
+                    if (i > 0) {
+                        doc.addPage('a4', 'p');
+                    }
+
+                    doc.addImage(compressedDataUrl, format, x, y, drawWidth, drawHeight);
                 }
 
-                doc.save('PixelPerfect_Converted.pdf');
+                doc.save(filename);
             } catch (error) {
                 console.error("PDF Generation Error:", error);
                 alert("An error occurred during PDF generation.");

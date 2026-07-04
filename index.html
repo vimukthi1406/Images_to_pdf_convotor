@@ -27,10 +27,32 @@
                 <i class="fa-solid fa-file-pdf"></i>
                 <h1>PixelPerfect PDF</h1>
             </div>
-            <p>Convert images to PDF locally with <strong>zero quality loss</strong>.</p>
+            <p>Convert images to PDF locally with <strong>zero quality loss</strong> or target a specific file size.</p>
         </header>
 
         <main>
+            <div class="settings-panel" id="settings-panel">
+                <div class="setting-group">
+                    <label for="pdf-filename"><i class="fa-solid fa-file-signature"></i> PDF Name</label>
+                    <input type="text" id="pdf-filename" value="Converted.pdf" placeholder="e.g. MyDocument.pdf">
+                </div>
+                <div class="setting-group">
+                    <label for="pdf-target-size"><i class="fa-solid fa-weight-scale"></i> Target Size</label>
+                    <select id="pdf-target-size">
+                        <option value="none">No Limit (Lossless)</option>
+                        <option value="5">Under 5 MB</option>
+                        <option value="10">Under 10 MB</option>
+                        <option value="15">Under 15 MB</option>
+                    </select>
+                </div>
+                <div class="setting-group checkbox-group">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="auto-convert-toggle">
+                        <span class="slider round"></span>
+                    </label>
+                    <span>Auto-convert on upload</span>
+                </div>
+            </div>
             <div id="drop-zone" class="drop-zone">
                 <div class="drop-content">
                     <i class="fa-solid fa-cloud-arrow-up drop-icon"></i>
