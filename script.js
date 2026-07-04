@@ -160,8 +160,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Target bytes per image with a 15% safety margin for PDF structural overhead
-            const targetBytes = (parseFloat(targetSizeMB) * 1024 * 1024 * 0.85) / imageFiles.length;
+            // Target bytes per image with a 25% safety margin for PDF structural overhead
+            const targetBytes = (parseFloat(targetSizeMB) * 1024 * 1024 * 0.75) / imageFiles.length;
             let quality = 0.9;
             
             // Force JPEG for effective compression
@@ -169,27 +169,27 @@ document.addEventListener('DOMContentLoaded', () => {
             if (outputFormat === 'image/png') outputFormat = 'image/jpeg';
 
             let dataUrl = canvas.toDataURL(outputFormat, quality);
-            // Estimate true binary size from base64 string
-            let approxBytes = Math.round((dataUrl.length - 22) * (3 / 4));
+            // Estimate true binary size from base64 string ('data:image/jpeg;base64,' is 23 chars)
+            let approxBytes = Math.round((dataUrl.length - 23) * (3 / 4));
             
             // 1. Iteratively reduce quality to hit the target size
             while (approxBytes > targetBytes && quality > 0.1) {
                 quality -= 0.1;
                 dataUrl = canvas.toDataURL(outputFormat, quality);
-                approxBytes = Math.round((dataUrl.length - 22) * (3 / 4));
+                approxBytes = Math.round((dataUrl.length - 23) * (3 / 4));
             }
             
-            // 2. If it's STILL too large (happens with many images or very detailed images), 
-            // we must scale down the physical dimensions to respect the hard size limit.
-            while (approxBytes > targetBytes && width > 200) {
-                width *= 0.8;
-                height *= 0.8;
+            // 2. If it's STILL too large, scale down the physical dimensions.
+            // We scale aggressively (0.7x) and allow it to go down to 50px if needed to guarantee the hard limit.
+            while (approxBytes > targetBytes && width > 50) {
+                width *= 0.7;
+                height *= 0.7;
                 canvas.width = width;
                 canvas.height = height;
                 // Redraw scaled image
                 ctx.drawImage(img, 0, 0, width, height);
                 dataUrl = canvas.toDataURL(outputFormat, quality);
-                approxBytes = Math.round((dataUrl.length - 22) * (3 / 4));
+                approxBytes = Math.round((dataUrl.length - 23) * (3 / 4));
             }
             
             resolve(dataUrl);
