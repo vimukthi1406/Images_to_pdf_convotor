@@ -31,6 +31,11 @@
         </header>
 
         <main>
+            <div class="tabs">
+                <button class="tab-btn active" data-target="tab-img-to-pdf">Images to PDF</button>
+                <button class="tab-btn" data-target="tab-compress-pdf">Compress PDF</button>
+            </div>
+
             <div class="settings-panel" id="settings-panel">
                 <div class="setting-group">
                     <label for="pdf-filename"><i class="fa-solid fa-file-signature"></i> PDF Name</label>
@@ -53,35 +58,66 @@
                     <span>Auto-convert on upload</span>
                 </div>
             </div>
-            <div id="drop-zone" class="drop-zone">
-                <div class="drop-content">
-                    <i class="fa-solid fa-cloud-arrow-up drop-icon"></i>
-                    <h2>Drag & Drop Images Here</h2>
-                    <p>or</p>
-                    <label for="file-input" class="btn-primary">
-                        Browse Files
-                    </label>
-                    <input type="file" id="file-input" multiple accept="image/png, image/jpeg, image/jpg, image/webp" hidden>
-                    <p class="file-hints">Supports JPG, PNG, WEBP. You can reorder images after adding them.</p>
+            <div id="tab-img-to-pdf" class="tab-content active">
+                <div id="drop-zone" class="drop-zone">
+                    <div class="drop-content">
+                        <i class="fa-solid fa-cloud-arrow-up drop-icon"></i>
+                        <h2>Drag & Drop Images Here</h2>
+                        <p>or</p>
+                        <label for="file-input" class="btn-primary">
+                            Browse Files
+                        </label>
+                        <input type="file" id="file-input" multiple accept="image/png, image/jpeg, image/jpg, image/webp" hidden>
+                        <p class="file-hints">Supports JPG, PNG, WEBP. You can reorder images after adding them.</p>
+                    </div>
+                </div>
+
+                <div class="controls-bar" style="display: none;" id="controls-bar">
+                    <div class="stats">
+                        <span id="file-count">0</span> images selected
+                    </div>
+                    <div class="actions">
+                        <button class="btn-secondary" id="clear-all-btn">
+                            <i class="fa-solid fa-trash-can"></i> Clear All
+                        </button>
+                        <button class="btn-primary" id="generate-pdf-btn">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Generate PDF
+                        </button>
+                    </div>
+                </div>
+
+                <div id="image-preview" class="grid-preview">
+                    <!-- Image items will be injected here dynamically -->
                 </div>
             </div>
 
-            <div class="controls-bar" style="display: none;" id="controls-bar">
-                <div class="stats">
-                    <span id="file-count">0</span> images selected
+            <div id="tab-compress-pdf" class="tab-content">
+                <div id="pdf-drop-zone" class="drop-zone">
+                    <div class="drop-content">
+                        <i class="fa-solid fa-file-pdf drop-icon"></i>
+                        <h2 id="pdf-upload-title">Drag & Drop an Existing PDF Here</h2>
+                        <p>or</p>
+                        <label for="pdf-file-input" class="btn-primary">
+                            Browse PDF
+                        </label>
+                        <input type="file" id="pdf-file-input" accept="application/pdf" hidden>
+                        <p class="file-hints">Upload a single PDF to compress it based on your target size setting.</p>
+                    </div>
                 </div>
-                <div class="actions">
-                    <button class="btn-secondary" id="clear-all-btn">
-                        <i class="fa-solid fa-trash-can"></i> Clear All
-                    </button>
-                    <button class="btn-primary" id="generate-pdf-btn">
-                        <i class="fa-solid fa-wand-magic-sparkles"></i> Generate PDF
-                    </button>
+                
+                <div class="controls-bar" style="display: none;" id="pdf-controls-bar">
+                    <div class="stats">
+                        <span id="pdf-file-name-display">No file selected</span>
+                    </div>
+                    <div class="actions">
+                        <button class="btn-secondary" id="pdf-clear-btn">
+                            <i class="fa-solid fa-trash-can"></i> Remove
+                        </button>
+                        <button class="btn-primary" id="compress-pdf-btn">
+                            <i class="fa-solid fa-compress"></i> Compress & Download
+                        </button>
+                    </div>
                 </div>
-            </div>
-
-            <div id="image-preview" class="grid-preview">
-                <!-- Image items will be injected here dynamically -->
             </div>
         </main>
         
@@ -97,6 +133,8 @@
     </div>
 
     <!-- Local Libraries via CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <script src="script.js"></script>

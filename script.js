@@ -8,16 +8,38 @@ document.addEventListener('DOMContentLoaded', () => {
     const generatePdfBtn = document.getElementById('generate-pdf-btn');
     const loadingOverlay = document.getElementById('loading-overlay');
     
-    // New Settings Elements
     const pdfFilenameInput = document.getElementById('pdf-filename');
     const pdfTargetSizeSelect = document.getElementById('pdf-target-size');
     const autoConvertToggle = document.getElementById('auto-convert-toggle');
     
-    let imageFiles = []; // Store image objects: { id, file, dataUrl }
+    // PDF Compressor Elements
+    const pdfDropZone = document.getElementById('pdf-drop-zone');
+    const pdfFileInput = document.getElementById('pdf-file-input');
+    const pdfControlsBar = document.getElementById('pdf-controls-bar');
+    const pdfFileNameDisplay = document.getElementById('pdf-file-name-display');
+    const pdfClearBtn = document.getElementById('pdf-clear-btn');
+    const compressPdfBtn = document.getElementById('compress-pdf-btn');
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
 
-    // --- Drag and Drop Events ---
+    let imageFiles = []; // Store image objects: { id, file, dataUrl }
+    let currentPdfFile = null; // Store single PDF file
+
+    // --- Tab Switching Events ---
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            tabBtns.forEach(b => b.classList.remove('active'));
+            tabContents.forEach(c => c.classList.remove('active'));
+            
+            btn.classList.add('active');
+            document.getElementById(btn.dataset.target).classList.add('active');
+        });
+    });
+
+    // --- Drag and Drop Events (Images) ---
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
         dropZone.addEventListener(eventName, preventDefaults, false);
+        pdfDropZone.addEventListener(eventName, preventDefaults, false);
     });
 
     function preventDefaults(e) {
@@ -26,19 +48,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     ['dragenter', 'dragover'].forEach(eventName => {
-        dropZone.addEventListener(eventName, () => {
-            dropZone.classList.add('dragover');
-        }, false);
+        dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+        pdfDropZone.addEventListener(eventName, () => pdfDropZone.classList.add('dragover'), false);
     });
 
     ['dragleave', 'drop'].forEach(eventName => {
-        dropZone.addEventListener(eventName, () => {
-            dropZone.classList.remove('dragover');
-        }, false);
+        dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+        pdfDropZone.addEventListener(eventName, () => pdfDropZone.classList.remove('dragover'), false);
     });
 
     dropZone.addEventListener('drop', handleDrop, false);
     fileInput.addEventListener('change', handleFileSelect, false);
+    pdfDropZone.addEventListener('drop', handlePdfDrop, false);
+    pdfFileInput.addEventListener('change', handlePdfSelect, false);
 
     function handleDrop(e) {
         const dt = e.dataTransfer;
@@ -275,5 +297,124 @@ document.addEventListener('DOMContentLoaded', () => {
                 loadingOverlay.classList.add('hidden');
             }
         }, 100); // 100ms delay for UI render
+    });
+
+    // --- PDF Compressor Logic ---
+    function handlePdfDrop(e) {
+        const dt = e.dataTransfer;
+        handlePdfFiles(dt.files);
+    }
+
+    function handlePdfSelect(e) {
+        handlePdfFiles(e.target.files);
+        pdfFileInput.value = "";
+    }
+
+    function handlePdfFiles(files) {
+        const validPdf = Array.from(files).find(file => file.type === 'application/pdf');
+        if (!validPdf) {
+            alert('Please select a valid PDF file.');
+            return;
+        }
+
+        currentPdfFile = validPdf;
+        pdfFileNameDisplay.textContent = validPdf.name;
+        pdfControlsBar.style.display = 'flex';
+        
+        // Auto-convert applies here too
+        if (autoConvertToggle.checked) {
+            compressPdfBtn.click();
+        }
+    }
+
+    pdfClearBtn.addEventListener('click', () => {
+        currentPdfFile = null;
+        pdfFileNameDisplay.textContent = 'No file selected';
+        pdfControlsBar.style.display = 'none';
+    });
+
+    compressPdfBtn.addEventListener('click', async () => {
+        if (!currentPdfFile) return;
+
+        loadingOverlay.classList.remove('hidden');
+        document.getElementById('loading-text').textContent = "Compressing PDF...";
+
+        setTimeout(async () => {
+            try {
+                // 1. Read PDF file as ArrayBuffer
+                const arrayBuffer = await currentPdfFile.arrayBuffer();
+                
+                // 2. Load PDF with PDF.js
+                const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+                const numPages = pdf.numPages;
+
+                // 3. Initialize jsPDF (A4 Portrait default, but we'll adapt per page if needed)
+                const { jsPDF } = window.jspdf;
+                let doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+                
+                const targetSizeMB = pdfTargetSizeSelect.value;
+                let filename = pdfFilenameInput.value.trim();
+                if (!filename.toLowerCase().endsWith('.pdf')) filename += '.pdf';
+                if (filename === '.pdf') filename = 'Compressed_' + currentPdfFile.name;
+
+                // Create a temporary array of simulated image files to trick compressImage into allocating budget correctly
+                // We fake `imageFiles.length` so `compressImage` accurately portions the Target Size per page.
+                const tempImageFilesStore = imageFiles;
+                imageFiles = { length: numPages }; 
+
+                for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+                    const page = await pdf.getPage(pageNum);
+                    const viewport = page.getViewport({ scale: 2.0 }); // High scale for initial render quality
+
+                    // 4. Render PDF page to canvas
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+
+                    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+
+                    // 5. Convert rendered canvas to an Image object for our compressor function
+                    const tempImg = new Image();
+                    tempImg.src = canvas.toDataURL('image/jpeg', 1.0);
+                    await new Promise(resolve => tempImg.onload = resolve);
+
+                    // 6. Pass through strict compression
+                    const compressedDataUrl = await compressImage(tempImg, targetSizeMB, 'JPEG');
+                    
+                    // 7. Add to jsPDF
+                    if (pageNum > 1) {
+                        doc.addPage('a4', 'p');
+                    }
+                    
+                    // Fit strictly to A4 (210x297mm)
+                    const a4Width = 210;
+                    const a4Height = 297;
+                    const imgRatio = tempImg.naturalWidth / tempImg.naturalHeight;
+                    const a4Ratio = a4Width / a4Height;
+                    
+                    let drawWidth = a4Width;
+                    let drawHeight = a4Height;
+                    if (imgRatio > a4Ratio) drawHeight = a4Width / imgRatio;
+                    else drawWidth = a4Height * imgRatio;
+                    
+                    const x = (a4Width - drawWidth) / 2;
+                    const y = (a4Height - drawHeight) / 2;
+
+                    doc.addImage(compressedDataUrl, 'JPEG', x, y, drawWidth, drawHeight);
+                }
+
+                // Restore image files
+                imageFiles = tempImageFilesStore;
+                doc.save(filename);
+
+            } catch (error) {
+                console.error("PDF Compression Error:", error);
+                alert("An error occurred during PDF compression.");
+            } finally {
+                loadingOverlay.classList.add('hidden');
+                document.getElementById('loading-text').textContent = "Generating your PDF...";
+            }
+        }, 100);
     });
 });
